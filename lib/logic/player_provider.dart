@@ -13,6 +13,7 @@ class PlayerProvider extends ChangeNotifier {
   LoopMode _loopMode = LoopMode.off;
   List<TrackModel> _queue = [];
   int _currentIndex = -1;
+  String? _error;
 
   TrackModel? get currentTrack => _currentTrack;
   bool get isPlaying => _isPlaying;
@@ -23,6 +24,7 @@ class PlayerProvider extends ChangeNotifier {
   LoopMode get loopMode => _loopMode;
   List<TrackModel> get queue => _queue;
   int get currentIndex => _currentIndex;
+  String? get error => _error;
 
   PlayerProvider() {
     _player.positionStream.listen((pos) {
@@ -46,21 +48,31 @@ class PlayerProvider extends ChangeNotifier {
     if (queue != null) {
       _queue = queue;
       _currentIndex = queue.indexWhere((t) => t.id == track.id);
-    } else {
+    } else if (_queue.isEmpty || _queue[_currentIndex].id != track.id) {
       _queue = [track];
       _currentIndex = 0;
     }
+
     _currentTrack = track;
+    _error = null;
     _isPlaying = true;
+    notifyListeners();
 
     try {
       if (track.localPath != null) {
         await _player.setFilePath(track.localPath!);
       } else if (track.audioUrl != null) {
         await _player.setUrl(track.audioUrl!);
+      } else {
+        _error = 'No audio source available';
+        _isPlaying = false;
+        notifyListeners();
+        return;
       }
       await _player.play();
     } catch (e) {
+      _error = 'Playback failed: $e';
+      _isPlaying = false;
       debugPrint('Playback error: $e');
     }
     notifyListeners();

@@ -25,6 +25,9 @@ class SearchProvider extends ChangeNotifier {
 
     try {
       _results = await _youtubeService.search(query);
+      if (_results.isEmpty) {
+        _error = 'No results found for "$query"';
+      }
     } catch (e) {
       _error = 'Search failed: ${e.toString()}';
       _results = [];
@@ -34,26 +37,22 @@ class SearchProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> selectTrack(TrackModel track) async {
-    _isLoading = true;
-    _selectedTrack = track;
-    notifyListeners();
-
+  Future<TrackModel?> getTrackInfo(String videoId) async {
     try {
-      final fullInfo = await _youtubeService.getTrackInfo(track.id);
-      _selectedTrack = fullInfo;
+      final fullInfo = await _youtubeService.getTrackInfo(videoId);
+      return fullInfo;
     } catch (e) {
       _error = 'Failed to get track info: ${e.toString()}';
+      notifyListeners();
+      return null;
     }
-
-    _isLoading = false;
-    notifyListeners();
   }
 
   void clearSearch() {
     _results = [];
     _selectedTrack = null;
     _query = '';
+    _error = null;
     notifyListeners();
   }
 

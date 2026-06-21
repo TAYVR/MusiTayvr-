@@ -8,11 +8,9 @@ class DownloadProvider extends ChangeNotifier {
   final DownloadService _downloadService = DownloadService();
   final List<TrackModel> _downloadedTracks = [];
   final Map<String, DownloadTask> _activeDownloads = {};
-  final bool _isLoading = false;
 
   List<TrackModel> get downloadedTracks => _downloadedTracks;
   Map<String, DownloadTask> get activeDownloads => _activeDownloads;
-  bool get isLoading => _isLoading;
 
   void loadDownloadedTracks() {
     _downloadedTracks.clear();
@@ -20,8 +18,17 @@ class DownloadProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool isDownloaded(String id) {
+    return _downloadedTracks.any((t) => t.id == id);
+  }
+
+  bool isDownloading(String id) {
+    return _activeDownloads.containsKey(id);
+  }
+
   Future<void> downloadTrack(TrackModel track) async {
     if (_activeDownloads.containsKey(track.id)) return;
+    if (isDownloaded(track.id)) return;
 
     final task = DownloadTask(
       id: track.id,
@@ -31,28 +38,31 @@ class DownloadProvider extends ChangeNotifier {
     _activeDownloads[track.id] = task;
     notifyListeners();
 
-    await _downloadService.downloadTrack(
+    final result = await _downloadService.downloadTrack(
       track,
       onProgress: (progress) {
-        _activeDownloads[track.id] = _activeDownloads[track.id]!.copyWith(
-          progress: progress,
-        );
-        notifyListeners();
+        if (_activeDownloads.containsKey(track.id)) {
+          _activeDownloads[track.id] = _activeDownloads[track.id]!.copyWith(
+            progress: progress,
+          );
+          notifyListeners();
+        }
       },
       onStatusChange: (status) {
-        _activeDownloads[track.id] = _activeDownloads[track.id]!.copyWith(
-          status: status,
-        );
-        notifyListeners();
+        if (_activeDownloads.containsKey(track.id)) {
+          _activeDownloads[track.id] = _activeDownloads[track.id]!.copyWith(
+            status: status,
+          );
+          notifyListeners();
+        }
       },
     );
 
-    final completedTask = _activeDownloads[track.id];
-    if (completedTask != null && completedTask.status == DownloadStatus.completed) {
-      await HiveDatabase.saveTrack(completedTask.track);
-      _downloadedTracks.insert(0, completedTask.track);
-      _activeDownloads.remove(track.id);
+    if (result.status == DownloadStatus.completed) {
+      await HiveDatabase.saveTrack(result.track);
+      _downloadedTracks.insert(0, result.track);
     }
+    _activeDownloads.remove(track.id);
     notifyListeners();
   }
 
