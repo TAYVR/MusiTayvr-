@@ -1,0 +1,22 @@
+workflows:
+  ios-build:
+    name: MusiTayvr iOS Build
+    instance_type: mac_mini_m1
+    environment:
+      vars:
+        APP_ID: com.musitayvr.musitayvr
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Build IPA
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - build/ios/iphoneos/*.app
+      - build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - you@example.com
