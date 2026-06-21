@@ -17,11 +17,6 @@ jobs:
         with:
           channel: stable
       
-      - name: Install CocoaPods
-        run: |
-          cd ios
-          pod install --repo-update
-      
       - name: Install Flutter dependencies
         run: flutter pub get
       
