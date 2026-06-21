@@ -18,12 +18,10 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
 
   @override
   void dispose() {
     _searchController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -50,9 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const PlayerScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const PlayerScreen()),
                     );
                   },
                 );
@@ -64,38 +60,41 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
-          _buildSearchField(),
+          _buildSearchBar(),
           Expanded(child: _buildBody()),
         ],
       ),
     );
   }
 
-  Widget _buildSearchField() {
+  Widget _buildSearchBar() {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Search YouTube music...',
-          prefixIcon: const Icon(Icons.search_rounded),
+          hintText: 'Search music, artists...',
+          hintStyle: TextStyle(color: Colors.grey, fontSize: 14.sp),
+          prefixIcon: Icon(Icons.search_rounded, size: 22.sp),
           suffixIcon: _searchController.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear_rounded),
                   onPressed: () {
                     _searchController.clear();
                     context.read<SearchProvider>().clearSearch();
+                    setState(() {});
                   },
                 )
               : null,
           filled: true,
           fillColor: Theme.of(context).cardTheme.color,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(15.r),
+            borderRadius: BorderRadius.circular(12.r),
             borderSide: BorderSide.none,
           ),
-          contentPadding: EdgeInsets.symmetric(vertical: 12.h),
+          contentPadding: EdgeInsets.symmetric(vertical: 10.h),
         ),
+        onChanged: (_) => setState(() {}),
         onSubmitted: (query) {
           if (query.trim().isNotEmpty) {
             context.read<SearchProvider>().search(query.trim());
@@ -146,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return _buildEmptyState();
         }
 
-        return _buildResultsList(searchProvider);
+        return _buildVideoGrid(searchProvider);
       },
     );
   }
@@ -156,15 +155,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.music_note_rounded, size: 64.sp, color: Colors.grey),
+          Icon(Icons.play_circle_outline_rounded, size: 72.sp, color: Colors.grey[400]),
           SizedBox(height: 16.h),
           Text(
-            'Discover Music',
+            'Search YouTube Music',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
           SizedBox(height: 8.h),
           Text(
-            'Search for any song or artist',
+            'Find songs, albums, and artists',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
         ],
@@ -172,84 +171,128 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildResultsList(SearchProvider searchProvider) {
-    final downloadProvider = context.read<DownloadProvider>();
-
+  Widget _buildVideoGrid(SearchProvider searchProvider) {
     return ListView.builder(
-      controller: _scrollController,
-      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      padding: EdgeInsets.symmetric(horizontal: 8.w),
       itemCount: searchProvider.results.length,
       itemBuilder: (context, index) {
         final track = searchProvider.results[index];
-        final isDownloaded = downloadProvider.isDownloaded(track.id);
-        final isDownloading = downloadProvider.isDownloading(track.id);
+        return _VideoCard(track: track, allTracks: searchProvider.results);
+      },
+    );
+  }
+}
 
-        return Card(
-          margin: EdgeInsets.only(bottom: 8.h),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(15.r),
-            onTap: () => _onTrackTap(track, searchProvider.results),
-            child: Padding(
-              padding: EdgeInsets.all(10.w),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8.r),
-                    child: SizedBox(
-                      width: 72.w,
-                      height: 54.w,
-                      child: track.thumbnailUrl != null
-                          ? CachedNetworkImage(
-                              imageUrl: track.thumbnailUrl!,
-                              fit: BoxFit.cover,
-                              placeholder: (_, __) => Container(
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.music_note),
-                              ),
-                              errorWidget: (_, __, ___) => Container(
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.music_note),
-                              ),
-                            )
-                          : Container(
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.music_note),
+class _VideoCard extends StatelessWidget {
+  final TrackModel track;
+  final List<TrackModel> allTracks;
+
+  const _VideoCard({required this.track, required this.allTracks});
+
+  @override
+  Widget build(BuildContext context) {
+    final downloadProvider = context.watch<DownloadProvider>();
+    final isDownloaded = downloadProvider.isDownloaded(track.id);
+    final isDownloading = downloadProvider.isDownloading(track.id);
+
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      elevation: 0,
+      color: Theme.of(context).cardTheme.color,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12.r),
+        onTap: () => _onTap(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(12.r)),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: track.thumbnailUrl != null
+                        ? CachedNetworkImage(
+                            imageUrl: track.thumbnailUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              color: Colors.grey[800],
+                              child: const Center(child: CircularProgressIndicator()),
                             ),
+                            errorWidget: (_, __, ___) => Container(
+                              color: Colors.grey[800],
+                              child: const Icon(Icons.music_note, color: Colors.white54, size: 48),
+                            ),
+                          )
+                        : Container(
+                            color: Colors.grey[800],
+                            child: const Icon(Icons.music_note, color: Colors.white54, size: 48),
+                          ),
+                  ),
+                ),
+                if (track.duration != null)
+                  Positioned(
+                    bottom: 8.h,
+                    right: 8.w,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                      child: Text(
+                        Helpers.formatDuration(track.duration!),
+                        style: TextStyle(color: Colors.white, fontSize: 11.sp, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ),
-                  SizedBox(width: 12.w),
+                Positioned(
+                  top: 8.h,
+                  left: 8.w,
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 24.sp,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           track.title,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontSize: 13.sp,
-                              ),
+                          style: TextStyle(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: 4.h),
-                        Row(
-                          children: [
-                            Text(
-                              track.author,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontSize: 11.sp,
-                                  ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (track.duration != null) ...[
-                              Text(
-                                ' • ${Helpers.formatDuration(track.duration!)}',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      fontSize: 11.sp,
-                                    ),
-                              ),
-                            ],
-                          ],
+                        Text(
+                          track.author,
+                          style: TextStyle(
+                            fontSize: 11.sp,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
@@ -268,60 +311,32 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     )
                   else if (isDownloaded)
-                    Icon(Icons.check_circle, color: Colors.green, size: 28.sp)
+                    IconButton(
+                      icon: Icon(Icons.download_done_rounded, color: Colors.green, size: 26.sp),
+                      onPressed: null,
+                    )
                   else
                     IconButton(
-                      icon: Icon(Icons.download_rounded, size: 28.sp),
-                      onPressed: () => _downloadTrack(track, searchProvider.results),
+                      icon: Icon(Icons.download_rounded, size: 26.sp),
+                      onPressed: () => _onDownload(context),
                     ),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
-  void _onTrackTap(TrackModel track, List<TrackModel> allTracks) async {
-    final searchProvider = context.read<SearchProvider>();
+  void _onTap(BuildContext context) async {
     final playerProvider = context.read<PlayerProvider>();
 
     if (track.audioUrl != null) {
       playerProvider.playTrack(track, queue: allTracks);
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const PlayerScreen()),
-        );
+      if (context.mounted) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerScreen()));
       }
-    } else {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-
-      try {
-        final fullTrack = await searchProvider.getTrackInfo(track.id);
-        if (mounted) Navigator.pop(context);
-
-        if (fullTrack != null && fullTrack.audioUrl != null) {
-          _showTrackOptions(fullTrack, allTracks);
-        } else {
-          _showError('Could not get audio for this track');
-        }
-      } catch (e) {
-        if (mounted) Navigator.pop(context);
-        _showError('Failed to load track: $e');
-      }
-    }
-  }
-
-  void _downloadTrack(TrackModel track, List<TrackModel> allTracks) async {
-    if (track.audioUrl != null) {
-      context.read<DownloadProvider>().downloadTrack(track);
-      _showSnackBar('Download started: ${track.title}');
     } else {
       showDialog(
         context: context,
@@ -331,122 +346,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
       try {
         final fullTrack = await context.read<SearchProvider>().getTrackInfo(track.id);
-        if (mounted) Navigator.pop(context);
+        if (context.mounted) Navigator.pop(context);
 
         if (fullTrack != null && fullTrack.audioUrl != null) {
-          context.read<DownloadProvider>().downloadTrack(fullTrack);
-          _showSnackBar('Download started: ${track.title}');
+          playerProvider.playTrack(fullTrack, queue: allTracks);
+          if (context.mounted) {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerScreen()));
+          }
         } else {
-          _showError('Could not get audio for this track');
+          _showError(context, 'Could not load audio');
         }
       } catch (e) {
-        if (mounted) Navigator.pop(context);
-        _showError('Failed to load track: $e');
+        if (context.mounted) Navigator.pop(context);
+        _showError(context, 'Failed to load: $e');
       }
     }
   }
 
-  void _showTrackOptions(TrackModel track, List<TrackModel> allTracks) {
+  void _onDownload(BuildContext context) async {
     final downloadProvider = context.read<DownloadProvider>();
-    final playerProvider = context.read<PlayerProvider>();
 
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.all(20.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10.r),
-                child: track.thumbnailUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: track.thumbnailUrl!,
-                        height: 150.h,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        height: 150.h,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.music_note, size: 48),
-                      ),
-              ),
-              SizedBox(height: 16.h),
-              Text(
-                track.title,
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                track.author,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              SizedBox(height: 20.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        downloadProvider.downloadTrack(track);
-                        _showSnackBar('Download started: ${track.title}');
-                      },
-                      icon: const Icon(Icons.download_rounded),
-                      label: const Text('Download'),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        playerProvider.playTrack(track, queue: allTracks);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const PlayerScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.play_arrow_rounded),
-                      label: const Text('Play Now'),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12.h),
-            ],
-          ),
-        );
-      },
+    if (track.audioUrl != null) {
+      downloadProvider.downloadTrack(track);
+      _showSnackBar(context, 'Download started');
+    } else {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+
+      try {
+        final fullTrack = await context.read<SearchProvider>().getTrackInfo(track.id);
+        if (context.mounted) Navigator.pop(context);
+
+        if (fullTrack != null && fullTrack.audioUrl != null) {
+          downloadProvider.downloadTrack(fullTrack);
+          _showSnackBar(context, 'Download started');
+        } else {
+          _showError(context, 'Could not load audio');
+        }
+      } catch (e) {
+        if (context.mounted) Navigator.pop(context);
+        _showError(context, 'Failed to load: $e');
+      }
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 
-  void _showError(String message) {
-    if (!mounted) return;
+  void _showSnackBar(BuildContext context, String message) {
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  void _showSnackBar(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 2),
-      ),
+      SnackBar(content: Text(message), duration: const Duration(seconds: 2)),
     );
   }
 }
