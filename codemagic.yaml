@@ -14,14 +14,17 @@ workflows:
       - name: Build IPA
         script: |
           flutter build ios --release --no-codesign
+          echo "=== Build structure ==="
+          find build/ios -name "*.app" -type d
+          echo "=== Creating IPA ==="
+          APP_PATH=$(find build/ios -name "Runner.app" -type d | head -1)
+          echo "Found app at: $APP_PATH"
           mkdir -p Payload
-          cp -R "build/ios/iphoneos/Runner.app" Payload/
+          cp -R "$APP_PATH" Payload/
           zip -r MusiTayvr.ipa Payload/
           mkdir -p build/ios/ipa
           mv MusiTayvr.ipa build/ios/ipa/
+          echo "=== IPA created ==="
+          ls -la build/ios/ipa/
     artifacts:
       - build/ios/ipa/*.ipa
-    publishing:
-      email:
-        recipients:
-          - you@example.com
